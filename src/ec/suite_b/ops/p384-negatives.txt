@@ -1,0 +1,27 @@
+
+a = 00
+r = 00
+
+a = 00
+r = 00
+
+a = 01
+r = fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000fffffffe
+
+a = 02
+r = fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000fffffffd
+
+a = 03
+r = fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000fffffffc
+
+a = fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000fffffffe
+r = 01
+
+a = 7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffff80000000000000007fffffff
+r = 7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffff800000000000000080000000
+
+a = 7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffff800000000000000080000000
+r = 7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffff80000000000000007fffffff
+
+a = 800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+r = 7ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffeffffffff0000000000000000ffffffff
