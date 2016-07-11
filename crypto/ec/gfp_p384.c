@@ -208,6 +208,10 @@ static INLINE_IF_POSSIBLE void elem_mul_by_3(Elem r, const Elem a) {
   elem_add(r, doubled, a);
 }
 
+static inline void elem_sqr_mont(Elem r, const Elem a) {
+  /* XXX: inefficient. TODO: Replace with dedicated squaring function. */
+  elem_mul_mont(r, a, a);
+}
 
 void GFp_p384_elem_add(Elem r, const Elem a, const Elem b) {
   elem_add(r, a, b);
