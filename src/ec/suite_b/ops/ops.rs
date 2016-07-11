@@ -155,6 +155,10 @@ pub struct CommonOps {
                                     b: *const Limb),
     elem_sqr_mont: unsafe extern fn(r: *mut Limb, a: *const Limb),
 
+    #[cfg_attr(not(test), allow(dead_code))]
+    point_add_jacobian_impl: unsafe extern fn(r: *mut Limb, a: *const Limb,
+                                              b: *const Limb),
+
     pub ec_group: &'static EC_GROUP,
 }
 
@@ -220,6 +224,16 @@ impl CommonOps {
             0 => Ok(()),
             _ => Err(()),
         }
+    }
+
+    #[cfg(test)]
+    pub fn point_sum(&self, a: &Point, b: &Point) -> Point {
+        let mut r = Point::new_at_infinity();
+        unsafe {
+            (self.point_add_jacobian_impl)(r.xyz.as_mut_ptr(), a.xyz.as_ptr(),
+                                           b.xyz.as_ptr())
+        }
+        r
     }
 
     pub fn point_x(&self, p: &Point) -> ElemUnreduced {
@@ -576,6 +590,7 @@ extern {
 mod tests {
     use std;
     use super::*;
+    use super::{ONE, parse_big_endian_value_in_range};
     use test;
     use untrusted;
 
@@ -808,6 +823,75 @@ mod tests {
         assert_eq!(parse_big_endian_value(inp, 1), Err(()));
     }
 
+    #[test]
+    fn point_sum_test() {
+         test::from_file("src/ec/suite_b/ops/suite_b_point_add_tests.txt",
+                         |section, test_case| {
+            assert_eq!(section, "");
+
+            let curve_name = test_case.consume_string("Curve");
+            let ops = curve_ops_from_curve_name(&curve_name);
+            let a = consume_point(test_case, ops, "a");
+            let b = consume_point(test_case, ops, "b");
+            let r_expected = consume_point(test_case, ops, "r");
+
+            let r_actual = ops.common.point_sum(&a, &b);
+            verify_point_equals_affine_point(ops, &r_actual, &r_expected);
+
+            Ok(())
+        });
+    }
+
+    fn verify_point_equals_affine_point(ops: &PrivateKeyOps, a:
+                                        &Point, b: &Point) {
+        let a_x = ops.common.point_x(a);
+        let a_y = ops.common.point_y(a);
+        let a_z = ops.common.point_z(a);
+
+        let b_z = ops.common.point_z(b);
+
+        if &a_z.limbs == &[0; MAX_LIMBS] {
+            assert_eq!(&b_z.limbs, &[0; MAX_LIMBS]);
+            return;
+        }
+        let b_z_decoded = ops.common.elem_decoded(&b_z);
+        assert_eq!(&b_z_decoded.limbs, &ONE.limbs);
+
+        let z_inv = ops.elem_inverse(&a_z);
+        let zz_inv = ops.common.elem_squared(&z_inv);
+        let x_aff = ops.common.elem_product(&a_x, &zz_inv);
+        let zzz_inv = ops.common.elem_product(&z_inv, &zz_inv);
+        let y_aff = ops.common.elem_product(&a_y, &zzz_inv);
+
+        let b_x = ops.common.point_x(b);
+        let b_y = ops.common.point_y(b);
+        assert_eq!((&x_aff.limbs[..], &y_aff.limbs[..]),
+                   (&b_x.limbs[..], &b_y.limbs[..]));
+    }
+
+    fn consume_point(test_case: &mut test::TestCase, ops: &PrivateKeyOps,
+                     name: &str) -> Point {
+        let input = test_case.consume_string(name);
+        let elems = input.split(", ").collect::<std::vec::Vec<&str>>();
+        assert_eq!(elems.len(), 3);
+        let mut p = Point::new_at_infinity();
+        consume_point_elem(ops.common, &mut p, &elems, 0);
+        consume_point_elem(ops.common, &mut p, &elems, 1);
+        consume_point_elem(ops.common, &mut p, &elems, 2);
+        p
+    }
+
+    fn consume_point_elem(ops: &CommonOps, p: &mut Point,
+                          elems: &std::vec::Vec<&str>, i: usize) {
+        let elem_bytes = test::from_hex(elems[i]).unwrap();
+        let elem_bytes = untrusted::Input::from(&elem_bytes);
+        let elem_limbs =
+            parse_big_endian_value_in_range(elem_bytes, 0,
+                                            &ops.q.p[..ops.num_limbs]).unwrap();
+        p.xyz[(i * ops.num_limbs)..((i + 1) * ops.num_limbs)]
+            .copy_from_slice(&elem_limbs[..ops.num_limbs]);
+    }
+
     fn assert_limbs_are_equal(ops: &CommonOps, actual: &[Limb; MAX_LIMBS],
                               expected: &[Limb; MAX_LIMBS]) {
         for i in 0..ops.num_limbs {
@@ -825,7 +909,6 @@ mod tests {
         }
     }
 
-
     fn consume_elem_unreduced(ops: &CommonOps, test_case: &mut test::TestCase,
                               name: &str) -> ElemUnreduced {
         let elem_bytes = test_case.consume_bytes(name);
@@ -833,6 +916,16 @@ mod tests {
         let elem_limbs =
             parse_big_endian_value(elem_bytes, ops.num_limbs).unwrap();
         ElemUnreduced{ limbs: elem_limbs }
+    }
+
+    fn curve_ops_from_curve_name(curve_name: &str) -> &'static PrivateKeyOps {
+        if curve_name == "P-256" {
+            &p256::PRIVATE_KEY_OPS
+        } else if curve_name == "P-384" {
+            &p384::PRIVATE_KEY_OPS
+        } else {
+            panic!("Unsupported curve: {}", curve_name);
+        }
     }
 }
 
