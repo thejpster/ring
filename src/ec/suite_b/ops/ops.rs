@@ -579,6 +579,45 @@ mod tests {
     const ZERO_SCALAR: Scalar = Scalar { limbs: [0; MAX_LIMBS] };
 
     #[test]
+    fn p256_product_test() {
+        product_test(&p256::COMMON_OPS, "src/ec/suite_b/ops/p256-products.txt");
+    }
+
+    #[test]
+    fn p384_product_test() {
+        product_test(&p384::COMMON_OPS, "src/ec/suite_b/ops/p384-products.txt");
+    }
+
+    fn product_test(ops: &CommonOps, file_path: &str) {
+        test::from_file(file_path, |section, test_case| {
+            assert_eq!(section, "");
+
+            let a = consume_elem_unreduced(ops, test_case, "a");
+            let b = consume_elem_unreduced(ops, test_case, "b");
+            let sum = consume_elem_unreduced(ops, test_case, "r");
+
+            let actual_product = ops.elem_product(&a, &b);
+
+            let mut s = std::string::String::new();
+            for i in 0..ops.num_limbs {
+                if sum.limbs[i] != actual_product.limbs[i] {
+                    for j in 0..ops.num_limbs {
+                        let formatted =
+                            format!("{:016x}",
+                                    actual_product.limbs[ops.num_limbs - j - 1]);
+                        s.push_str(&formatted);
+                    }
+                    print!("\n");
+                    panic!("Actual != Expected,\nActual = {}", s);
+                }
+            }
+
+            Ok(())
+        })
+    }
+
+
+    #[test]
     fn p256_sum_test() {
         sum_test(&p256::PUBLIC_SCALAR_OPS, "src/ec/suite_b/ops/p256-sums.txt");
     }
