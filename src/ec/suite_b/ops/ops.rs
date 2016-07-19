@@ -241,11 +241,16 @@ impl CommonOps {
         r
     }
 
-    fn reduced_limbs(&self, a: &[Limb; MAX_LIMBS], m: &[Limb; MAX_LIMBS])
+    // This assumes
+    // 2**(self.num_limbs * LIMB_BITS) < p and
+    // p < 2**((self.num_limbs * LIMB_BITS - 1) and `p` is prime. This is true
+    // for P-256 and P-384 but not true for all curves. For example, it is not
+    // true for P-521.
+    fn reduced_limbs(&self, a: &[Limb; MAX_LIMBS], p: &[Limb; MAX_LIMBS])
                      -> [Limb; MAX_LIMBS] {
         let mut r = *a;
         unsafe {
-            GFp_constant_time_limbs_reduce_once(r.as_mut_ptr(), m.as_ptr(),
+            GFp_constant_time_limbs_reduce_once(r.as_mut_ptr(), p.as_ptr(),
                                                 self.num_limbs);
         }
         r
